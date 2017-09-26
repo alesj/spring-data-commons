@@ -26,6 +26,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import org.springframework.data.domain.Sort;
+import org.springframework.data.mapping.PathHandleCreator;
 import org.springframework.data.repository.query.parser.Part.Type;
 import org.springframework.data.repository.query.parser.PartTree.OrPart;
 import org.springframework.data.util.Streamable;
@@ -43,6 +44,7 @@ import org.springframework.util.StringUtils;
  * @author Thomas Darimont
  * @author Christoph Strobl
  * @author Mark Paluch
+ * @author Ales Justin
  */
 public class PartTree implements Streamable<OrPart> {
 
@@ -82,6 +84,18 @@ public class PartTree implements Streamable<OrPart> {
 	 *          class
 	 */
 	public PartTree(String source, Class<?> domainClass) {
+		this(source, domainClass, PathHandleCreator.DEFAULT);
+	}
+
+	/**
+	 * Creates a new {@link PartTree} by parsing the given {@link String}.
+	 *
+	 * @param source the {@link String} to parse
+	 * @param domainClass the domain class to check individual parts against to ensure they refer to a property of the
+	 *          class
+	 * @param creator the path handle creator
+	 */
+	public PartTree(String source, Class<?> domainClass, PathHandleCreator creator) {
 
 		Assert.notNull(source, "Source must not be null");
 		Assert.notNull(domainClass, "Domain class must not be null");
@@ -90,10 +104,10 @@ public class PartTree implements Streamable<OrPart> {
 
 		if (!matcher.find()) {
 			this.subject = new Subject(Optional.empty());
-			this.predicate = new Predicate(source, domainClass);
+			this.predicate = new Predicate(source, domainClass, creator);
 		} else {
 			this.subject = new Subject(Optional.of(matcher.group(0)));
-			this.predicate = new Predicate(source.substring(matcher.group().length()), domainClass);
+			this.predicate = new Predicate(source.substring(matcher.group().length()), domainClass, creator);
 		}
 	}
 
@@ -240,14 +254,15 @@ public class PartTree implements Streamable<OrPart> {
 		 * @param source the source to split up into {@literal And} parts in turn.
 		 * @param domainClass the domain class to check the resulting {@link Part}s against.
 		 * @param alwaysIgnoreCase if always ignoring case
+		 * @param creator the path handle creator
 		 */
-		OrPart(String source, Class<?> domainClass, boolean alwaysIgnoreCase) {
+		OrPart(String source, Class<?> domainClass, boolean alwaysIgnoreCase, PathHandleCreator creator) {
 
 			String[] split = split(source, "And");
 
 			this.children = Arrays.stream(split)//
 					.filter(StringUtils::hasText)//
-					.map(part -> new Part(part, domainClass, alwaysIgnoreCase))//
+					.map(part -> new Part(part, domainClass, alwaysIgnoreCase, creator))//
 					.collect(Collectors.toList());
 		}
 
@@ -367,7 +382,7 @@ public class PartTree implements Streamable<OrPart> {
 		private final @Getter OrderBySource orderBySource;
 		private boolean alwaysIgnoreCase;
 
-		public Predicate(String predicate, Class<?> domainClass) {
+		public Predicate(String predicate, Class<?> domainClass, PathHandleCreator creator) {
 
 			String[] parts = split(detectAndSetAllIgnoreCase(predicate), ORDER_BY);
 
@@ -377,7 +392,7 @@ public class PartTree implements Streamable<OrPart> {
 
 			this.nodes = Arrays.stream(split(parts[0], "Or")) //
 					.filter(StringUtils::hasText) //
-					.map(part -> new OrPart(part, domainClass, alwaysIgnoreCase)) //
+					.map(part -> new OrPart(part, domainClass, alwaysIgnoreCase, creator)) //
 					.collect(Collectors.toList());
 
 			this.orderBySource = parts.length == 2 ? new OrderBySource(parts[1], Optional.of(domainClass))

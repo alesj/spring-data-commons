@@ -29,6 +29,7 @@ import java.util.List;
 
 import org.junit.Test;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.mapping.PathHandle;
 import org.springframework.data.mapping.PropertyPath;
 import org.springframework.data.repository.query.parser.Part.IgnoreCaseType;
 import org.springframework.data.repository.query.parser.Part.Type;
@@ -133,7 +134,7 @@ public class PartTreeUnitTests {
 		PartTree tree = partTree("findByLocationWithin");
 		for (Part part : tree.getParts()) {
 			assertThat(part.getType()).isEqualTo(Type.WITHIN);
-			assertThat(part.getProperty()).isEqualTo(newProperty("location"));
+			assertThat(part.getPathHandle()).isEqualTo(newPathHandle("location"));
 		}
 	}
 
@@ -566,7 +567,7 @@ public class PartTreeUnitTests {
 		Part part = parts.iterator().next();
 
 		assertThat(part.getType()).isEqualTo(Type.IN);
-		assertThat(part.getProperty()).isEqualTo(PropertyPath.from("someInfo", Category.class));
+		assertThat(part.getPathHandle()).isEqualTo(newPathHandle("someInfo", Category.class));
 	}
 
 	@Test // DATACMNS-1007
@@ -624,7 +625,7 @@ public class PartTreeUnitTests {
 		for (String source : sources) {
 			Part part = part(source);
 			assertThat(part.getType()).isEqualTo(type);
-			assertThat(part.getProperty()).isEqualTo(newProperty(property));
+			assertThat(part.getPathHandle()).isEqualTo(newPathHandle(property));
 			assertThat(part.getNumberOfArguments()).isEqualTo(numberOfArguments);
 			assertThat(part.isParameterRequired()).isEqualTo(parameterRequired);
 		}
@@ -646,8 +647,12 @@ public class PartTreeUnitTests {
 		return parts;
 	}
 
-	private static PropertyPath newProperty(String name) {
-		return PropertyPath.from(name, User.class);
+	private static PathHandle newPathHandle(String name) {
+		return newPathHandle(name, User.class);
+	}
+
+	private static PathHandle newPathHandle(String name, Class<?> type) {
+		return PropertyPath.from(name, type);
 	}
 
 	private void assertPart(PartTree tree, Part[]... parts) {

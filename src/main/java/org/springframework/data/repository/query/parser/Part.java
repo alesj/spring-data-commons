@@ -25,6 +25,8 @@ import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.springframework.data.mapping.PathHandle;
+import org.springframework.data.mapping.PathHandleCreator;
 import org.springframework.data.mapping.PropertyPath;
 import org.springframework.util.Assert;
 import org.springframework.util.StringUtils;
@@ -32,17 +34,18 @@ import org.springframework.util.StringUtils;
 /**
  * A single part of a method name that has to be transformed into a query part. The actual transformation is defined by
  * a {@link Type} that is determined from inspecting the given part. The query part can then be looked up via
- * {@link #getProperty()}.
+ * {@link #getPathHandle()}.
  * 
  * @author Oliver Gierke
  * @author Martin Baumgartner
+ * @author Ales Justin
  */
 @EqualsAndHashCode
 public class Part {
 
 	private static final Pattern IGNORE_CASE = Pattern.compile("Ignor(ing|e)Case");
 
-	private final PropertyPath propertyPath;
+	private final PathHandle pathHandle;
 	private final Part.Type type;
 
 	private IgnoreCaseType ignoreCase = IgnoreCaseType.NEVER;
@@ -67,6 +70,19 @@ public class Part {
 	 * @param alwaysIgnoreCase
 	 */
 	public Part(String source, Class<?> clazz, boolean alwaysIgnoreCase) {
+		this(source, clazz, alwaysIgnoreCase, PathHandleCreator.DEFAULT);
+	}
+
+	/**
+	 * Creates a new {@link Part} from the given method name part, the {@link Class} the part originates from and the
+	 * start parameter index.
+	 *
+	 * @param source must not be {@literal null}.
+	 * @param clazz must not be {@literal null}.
+	 * @param creator must not be {@literal null}.
+	 * @param alwaysIgnoreCase
+	 */
+	public Part(String source, Class<?> clazz, boolean alwaysIgnoreCase, PathHandleCreator creator) {
 
 		Assert.hasText(source, "Part source must not be null or empty!");
 		Assert.notNull(clazz, "Type must not be null!");
@@ -78,7 +94,14 @@ public class Part {
 		}
 
 		this.type = Type.fromProperty(partToUse);
-		this.propertyPath = PropertyPath.from(type.extractProperty(partToUse), clazz);
+
+		String property = type.extractProperty(partToUse);
+		PathHandle handle = creator.create(property, clazz);
+		if (handle == null) {
+			throw new IllegalStateException("No such path handle: " + property);
+		}
+
+		this.pathHandle = handle;
 	}
 
 	private String detectAndSetIgnoreCase(String part) {
@@ -108,10 +131,21 @@ public class Part {
 	}
 
 	/**
+	 * Get property.
+	 *
+	 * @deprecated use {@link #getPathHandle()}
 	 * @return the propertyPath
 	 */
+	@Deprecated
 	public PropertyPath getProperty() {
-		return propertyPath;
+		return PropertyPath.from(getPathHandle().getSegment(), getPathHandle().getTypeInformation());
+	}
+
+	/**
+	 * @return the path handle
+	 */
+	public PathHandle getPathHandle() {
+		return pathHandle;
 	}
 
 	/**
@@ -136,7 +170,7 @@ public class Part {
 	 */
 	@Override
 	public String toString() {
-		return String.format("%s %s %s", propertyPath.getSegment(), type, ignoreCase);
+		return String.format("%s %s %s", pathHandle.getSegment(), type, ignoreCase);
 	}
 
 	/**

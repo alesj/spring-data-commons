@@ -42,9 +42,10 @@ import org.springframework.util.StringUtils;
  * @author Oliver Gierke
  * @author Christoph Strobl
  * @author Mark Paluch
+ * @author Ales Justin
  */
 @EqualsAndHashCode
-public class PropertyPath implements Streamable<PropertyPath> {
+public class PropertyPath implements Streamable<PropertyPath>, PathHandle {
 
 	private static final String DELIMITERS = "_\\.";
 	private static final String ALL_UPPERCASE = "[A-Z0-9._$]+";
